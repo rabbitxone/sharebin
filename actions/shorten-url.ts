@@ -8,12 +8,13 @@ import { generateCode } from "@/lib/utils";
 
 const ShortenUrlSchema = z.object({
 	url: z.string().url("Invalid URL"),
+	osUrls: z.record(z.string(), z.string().url()).optional(),
 	customCode: z.string().min(3).max(24).optional()
 });
 
 export const shortenUrl = actionClient
 	.schema(ShortenUrlSchema)
-	.action(async ({ parsedInput: { url, customCode } }) => {
+	.action(async ({ parsedInput: { url, customCode, osUrls } }) => {
 		await connectToDb();
 		let code: string;
 
@@ -37,6 +38,7 @@ export const shortenUrl = actionClient
 
 		const newLink = await Link.create({
 			url: url,
+			osUrls: osUrls || {},
 			code: code
 		});
 

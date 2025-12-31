@@ -6,6 +6,11 @@ const LinkSchema = new Schema({
         type: String,
         required: true
     },
+    osUrls: {
+        type: Map,
+        of: String,
+        default: {}
+    },
     code: {
         type: String,
         required: true,
