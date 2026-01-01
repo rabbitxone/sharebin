@@ -1,7 +1,9 @@
 "use client";
 
+import React from "react";
 import { useState } from "react";
 import { useAction } from "next-safe-action/hooks";
+import { format } from "date-fns"
 import { shortenUrl } from "@/actions/shorten-url";
 import { useCopyToClipboard } from "@/hooks/use-copy-to-clipboard";
 import { QRCodeCanvas } from "qrcode.react";
@@ -10,7 +12,9 @@ import {
     IconCheck,
     IconLink,
     IconAlertCircle,
-    IconLoader
+    IconLoader,
+    IconSettings,
+    IconCalendarFilled
 } from "@tabler/icons-react";
 import {
     WindowsIcon,
@@ -27,14 +31,21 @@ import { Input } from "@/components/ui/input";
 import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput, InputGroupText, InputGroupTextarea } from "@/components/ui/input-group";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { AspectRatio } from "@/components/ui/aspect-ratio";
-import { Field, FieldGroup, FieldLabel, FieldSet } from "@/components/ui/field"
+import { Field, FieldGroup, FieldLabel, FieldSet, FieldDescription } from "@/components/ui/field"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
+import { Calendar } from "@/components/ui/calendar"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 
 export default function UrlShortenerForm() {
     const [isDialogOpen, setIsDialogOpen] = useState(false);
+    const [isSettingsOpen, setIsSettingsOpen] = useState(false);
     const [shortUrl, setShortUrl] = useState("");
+    const [expDate, setExpDate] = React.useState<Date>()
+    const [clickLimit, setClickLimit] = React.useState<number>()
+    const [tempExpDate, setTempExpDate] = React.useState<Date | undefined>(expDate)
+    const [tempClickLimit, setTempClickLimit] = React.useState<number | undefined>(clickLimit)
     const [showOsUrls, setShowOsUrls] = useState({
         windows: false,
         macos: false,
@@ -90,9 +101,17 @@ export default function UrlShortenerForm() {
         execute({
             url: formData.get("url") as string,
             osUrls,
-            customCode: formData.get("customCode") as string || undefined
+            customCode: formData.get("customCode") as string || undefined,
+            expirationDate: expDate || undefined,
+            clickLimit: clickLimit || undefined
         });
     };
+
+    function handleOpenSettings() {
+        setTempExpDate(expDate);
+        setTempClickLimit(clickLimit);
+        setIsSettingsOpen(true);
+    }
 
     function resetForm() {
         setShowOsUrls({
@@ -103,13 +122,17 @@ export default function UrlShortenerForm() {
             ios: false,
             chromeos: false
         });
+        setExpDate(undefined);
+        setClickLimit(undefined);
+        setTempExpDate(undefined);
+        setTempClickLimit(undefined);
 
         const form = document.querySelector("form");
         if (form) form.reset();
     }
 
     return (
-        <div className="max-w-xl mx-auto py-10">
+        <div className="max-w-xl mx-auto py-10 px-4 sm:px-0">
             <Card>
                 <CardHeader>
                     <CardTitle className="flex items-center gap-2">
@@ -213,13 +236,98 @@ export default function UrlShortenerForm() {
                                 </Alert>
                             )}
 
-                            <Button type="submit" className="w-full" disabled={isPending}>
-                                {isPending ? (<><IconLoader className="animate-spin" /> Please wait...</>) : "Shorten URL"}
-                            </Button>
+                            <div className="flex gap-2">
+                                <Button
+                                    variant="outline"
+                                    className="flex-none whitespace-nowrap"
+                                    disabled={isPending}
+                                    aria-label="Advanced Options"
+                                    onClick={handleOpenSettings}
+                                >
+                                    <IconSettings />
+                                    <span className="hidden sm:inline">Advanced Options</span>
+                                </Button>
+                                <Button type="submit" className="flex-1" disabled={isPending}>
+                                    {isPending ? (
+                                        <>
+                                            <IconLoader className="animate-spin mr-2" /> Please wait...
+                                        </>
+                                    ) : (
+                                        "Shorten URL"
+                                    )}
+                                </Button>
+                            </div>
+
                         </FieldGroup>
                     </form>
                 </CardContent>
             </Card>
+
+            <Dialog open={isSettingsOpen} onOpenChange={setIsSettingsOpen}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Advanced Options</DialogTitle>
+                        <DialogDescription>Configure additional options for your shortened URL</DialogDescription>
+                    </DialogHeader>
+                    <div className="py-4">
+                        <FieldGroup>
+                            <Field>
+                                <FieldLabel htmlFor="expiration">Expiration date</FieldLabel>
+                                <FieldDescription>Set a date when the shortened URL will be marked as inactive and will no longer work</FieldDescription>
+                                <Popover>
+                                    <PopoverTrigger>
+                                        <Button
+                                            variant="outline"
+                                            data-empty={!tempExpDate}
+                                            className="data-[empty=true]:text-muted-foreground w-full justify-start text-left font-normal"
+                                        >
+                                            <IconCalendarFilled />
+                                            {tempExpDate ? format(tempExpDate, "PPP") : <span>Pick a date</span>}
+                                        </Button>
+                                    </PopoverTrigger>
+                                    <PopoverContent className="w-auto p-0">
+                                        <Calendar
+                                            mode="single"
+                                            selected={tempExpDate}
+                                            onSelect={(d: Date | undefined) => setTempExpDate(d)}
+                                            captionLayout="dropdown"
+                                            startMonth={new Date()}
+                                            endMonth={new Date(new Date().getFullYear() + 10, new Date().getMonth())}
+                                        />
+                                    </PopoverContent>
+                                </Popover>
+                            </Field>
+                            <Field>
+                                <FieldLabel htmlFor="clicksLimit">Clicks Limit</FieldLabel>
+                                <FieldDescription>Set a maximum number of clicks after which the shortened URL will be marked as inactive</FieldDescription>
+                                <Input
+                                    name="clicksLimit"
+                                    type="number"
+                                    min={1}
+                                    placeholder="Enter maximum number of clicks (optional)"
+                                    value={tempClickLimit ?? ""}
+                                    onChange={(e) => {
+                                        const v = e.currentTarget.value;
+                                        setTempClickLimit(v === "" ? undefined : Math.max(1, Number(v)));
+                                    }}
+                                />
+                            </Field>
+                        </FieldGroup>
+                    </div>
+                    <DialogFooter>
+                        <Button variant="ghost" onClick={() => {
+                            setTempExpDate(undefined);
+                            setTempClickLimit(undefined);
+                        }}>Clear settings</Button>
+                        <Button variant="ghost" onClick={() => setIsSettingsOpen(false)}>Cancel</Button>
+                        <Button onClick={() => {
+                            setExpDate(tempExpDate);
+                            setClickLimit(tempClickLimit);
+                            setIsSettingsOpen(false);
+                        }}>Save</Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
 
             <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
                 <DialogContent>
@@ -233,7 +341,7 @@ export default function UrlShortenerForm() {
                                 <QRCodeCanvas value={shortUrl} size={240} />
                             </AspectRatio>
                         </div>
-
+                        
                         <div className="flex w-full items-center space-x-2">
                             <Input value={shortUrl} readOnly disabled className="bg-muted" />
                             <Button size="icon" onClick={() => copy(shortUrl)}>

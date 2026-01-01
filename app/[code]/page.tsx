@@ -14,6 +14,9 @@ export default async function RedirectPage({ params }: { params: Promise<{code: 
 
     if(!link) notFound();
 
+    if(link.expirationDate && link.expirationDate < new Date()) notFound();
+    if(link.clickLimit && link.clickLimit <= link.clicks) notFound();
+
     const ua = (await headers()).get('user-agent') || '';
     
     let target = link.url;

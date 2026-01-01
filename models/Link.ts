@@ -23,6 +23,14 @@ const LinkSchema = new Schema({
     isActive: {
         type: Boolean,
         default: true
+    },
+    expirationDate: {
+        type: Date,
+        default: null
+    },
+    clickLimit: {
+        type: Number,
+        default: null
     }
 }, { timestamps: true });
 
